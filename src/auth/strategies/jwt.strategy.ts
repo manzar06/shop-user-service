@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import * as dotenv from 'dotenv';
@@ -16,6 +16,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    if (!payload || !payload.role) {
+      throw new UnauthorizedException('Invalid token: Role is missing');
+    }
     return { userId: payload.sub, email: payload.email, role: payload.role };
   }
 }

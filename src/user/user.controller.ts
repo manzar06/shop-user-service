@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards, SetMetadata } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // ✅ Import JWT Auth Guard
+import { RolesGuard } from '../auth/guards/roles.guard'; // ✅ Import Role-Based Guard
 
 @ApiTags('users')
 @ApiBearerAuth() // ✅ Enables JWT authentication in Swagger
@@ -17,15 +18,16 @@ export class UserController {
     return this.userService.createUser(createUserDto);
   }
 
-  @UseGuards(JwtAuthGuard) // ✅ Protect `GET /users`
-  @ApiOperation({ summary: 'Get all active users' })
+  @UseGuards(JwtAuthGuard, RolesGuard) // ✅ Protect `GET /users` with both JWT and Role-Based Guard
+  @SetMetadata('role', 'admin') // ✅ Restrict to admins only
+  @ApiOperation({ summary: 'Get all active users (Admin Only)' })
   @ApiResponse({ status: 200, description: 'List of users' })
   @Get()
   async getAllUsers() {
     return this.userService.getAllUsers();
   }
 
-  @UseGuards(JwtAuthGuard) // ✅ Protect `PATCH /users/{id}`
+  @UseGuards(JwtAuthGuard) // ✅ Protect `PATCH /users/{id}` (Any authenticated user can update)
   @ApiOperation({ summary: 'Update user role or deactivate user' })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   @ApiBody({ schema: {
