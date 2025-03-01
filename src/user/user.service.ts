@@ -1,21 +1,38 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
+import { Invite, InviteDocument } from './schemas/invite.schema';
 import { CreateUserDto } from './dto/create-user.dto';
+import { InviteUserDto } from './dto/invite-user.dto';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Invite.name) private inviteModel: Model<InviteDocument> // ✅ Inject Invite Model
+  ) {}
 
-  // ✅ CREATE - Handle Duplicate Email Error
+  // ✅ CREATE - Register User (Only if invited)
   async createUser(createUserDto: CreateUserDto): Promise<User> {
+    const invite = await this.inviteModel.findOne({ email: createUserDto.email }).exec();
+
+    if (!invite || invite.status !== 'pending') {
+      throw new ForbiddenException(`No valid invite found for ${createUserDto.email}`);
+    }
+
     try {
       const newUser = new this.userModel({
         ...createUserDto,
         active: true // ✅ Ensures `active: true` is always set
       });
-      return await newUser.save();
+      const savedUser = await newUser.save();
+
+      // ✅ Mark invite as "completed"
+      invite.status = 'completed';
+      await invite.save();
+
+      return savedUser;
     } catch (error) {
       if (error.code === 11000) {
         throw new ConflictException(`Email "${createUserDto.email}" already exists.`);
@@ -23,7 +40,6 @@ export class UserService {
       throw error;
     }
   }
-  
 
   // ✅ READ - Get all active users only
   async getAllUsers(): Promise<User[]> {
@@ -48,5 +64,37 @@ export class UserService {
     }
 
     return updatedUser;
+  }
+
+  // ✅ INVITE - Send Invite (Admin Only)
+  async inviteUser(inviteUserDto: InviteUserDto) {
+    const existingInvite = await this.inviteModel.findOne({ email: inviteUserDto.email }).exec();
+
+    if (existingInvite) {
+      throw new ConflictException(`An invite already exists for ${inviteUserDto.email}`);
+    }
+
+    const invite = new this.inviteModel({ 
+      email: inviteUserDto.email, 
+      role: inviteUserDto.role 
+    });
+    return await invite.save();
+  }
+
+  // ✅ READ - Get All Invites (Admin Only)
+  async getAllInvites() {
+    return this.inviteModel.find().exec();
+  }
+
+  // ✅ UPDATE - Accept Invite (Changes Status to Completed)
+  async acceptInvite(email: string) {
+    const invite = await this.inviteModel.findOne({ email }).exec();
+
+    if (!invite) {
+      throw new NotFoundException(`No pending invite found for ${email}`);
+    }
+
+    invite.status = 'completed';
+    return await invite.save();
   }
 }
