@@ -5,6 +5,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { Invite, InviteDocument } from './schemas/invite.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class UserService {

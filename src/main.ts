@@ -7,18 +7,28 @@ dotenv.config(); // ✅ Load environment variables
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
 
+  // ✅ Fix CORS for Shopify OAuth
+  app.enableCors({
+    origin: '*', // Allow all origins (for testing)
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  });
+
+  // ✅ Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('Shop User API')
     .setDescription('API for managing shop users')
     .setVersion('1.0')
-    .addBearerAuth() // ✅ Add Bearer Auth for JWT in Swagger
+    .addBearerAuth() // ✅ JWT authentication
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
   await app.listen(3000);
+  console.log(`🚀 Server is running on: http://localhost:3000/api`);
 }
+
 bootstrap();
